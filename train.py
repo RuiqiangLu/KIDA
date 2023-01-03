@@ -11,7 +11,7 @@ parser.add_argument('--cuda_ids', default='1', type=str, help='cuda device ids')
 parser.add_argument('--save_id', default=0, type=int)
 parser.add_argument('--batch_size', default=18, type=int, help='number of batch_size')
 parser.add_argument('--accumulation', default=3, type=int, help='gradient accumulation')
-parser.add_argument('--epochs', default=40, type=int, help='number of epochs')
+parser.add_argument('--epochs', default=50, type=int, help='number of epochs')
 parser.add_argument('--loss', default='huber', type=str, help='ce,wce,focal,bfocal...')
 parser.add_argument('--optim', default='Adam', type=str, help='Adam, SGD, RMSprop')
 parser.add_argument('--lr', default=0.0005, type=float, help='learning rate')
@@ -48,8 +48,6 @@ trainer = Trainer(args, model,
                   valid_dataset,
                   test_dataset,
                   batch_size=args.batch_size // args.accumulation,
-                  supervise_epoch=30,
-                  interaction_epoch=70,
                   accumulation_steps=args.accumulation,
                   num_workers=0,
                   )

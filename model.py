@@ -177,78 +177,27 @@ class DTI(nn.Module):
         self.complex_predictor = ComplexPredictor(hid_dim=hid_dim, heads=heads, output=output, dropout=dropout)
         self.complex_free_predictor = ComplexFreePredictor(hid_dim=hid_dim, heads=heads, output=output, dropout=dropout)
 
-        self.loss = modified_huber_loss if binary else torch.nn.SmoothL1Loss()
+        self.loss = torch.nn.SmoothL1Loss()
         self.loss = self.loss if local_rank is None else self.loss.cuda(local_rank)
-        # self.mdn_loss = mdn_loss_fn if local_rank is None else mdn_loss_fn.cuda(local_rank)
 
-    def forward(self, data, y_true, mode=3):
+    def forward(self, data, y_true):
         mol_feats, mol_edge_index, mol_edge_attr, mol_size = data.x, data.edge_index, data.edge_attr, data.mol_node_num
         pro_feats, pro_edge_index, pro_edge_attr, pro_size = data.pro, data.pro_edge_index, data.pro_edge_attr, data.pro_node_num
         knn_index = data.qb_edge_index
         bipartite_edge_index, bipartite_edge_attr = data.interaction_edge_index, data.interaction_edge_attr
         pro_batch = create_batch(pro_size)
 
-        if mode == 1:   # complex_base
-            mol_feats = self.mol_embedding(mol_feats, mol_edge_index, mol_edge_attr)
-            pro_feats = self.pro_embedding(pro_feats[:, 3:], pro_edge_index, pro_edge_attr)
-            _, y_complex_pred = self.complex_predictor(mol_feats, pro_feats, pro_batch, bipartite_edge_index, bipartite_edge_attr)
-            loss = self.loss(y_complex_pred, y_true)
-            return {'y_complex_pred': y_complex_pred,
-                    'y_pred': torch.zeros_like(y_complex_pred, device='cpu'),
-                    'interaction_loss': torch.tensor([0.]),
-                    'loss': loss,
-                    'pred_loss': torch.tensor([0.]),
-                    'complex_pred_loss': loss}
+        mol_feats = self.mol_embedding(mol_feats, mol_edge_index, mol_edge_attr)
+        spatial_feats = self.position_encode(pro_feats, knn_index, pro_batch)
+        pro_feats = self.pro_embedding(pro_feats[:, 3:], pro_edge_index, pro_edge_attr)
+        interaction_mat, y_complex_pred = self.complex_predictor(mol_feats, pro_feats, pro_batch,
+                                                                 bipartite_edge_index, bipartite_edge_attr)
+        mu, sigma, mol_index, pro_index, y_pred = self.complex_free_predictor(mol_feats, pro_feats,
+                                                                                  spatial_feats, mol_size,
+                                                                                  pro_size, data.batch)
+        loss = self.loss(y_pred, y_true)
+        complex_loss = self.loss(y_complex_pred, y_true)
+        interaction_loss = torch.mean(mdn_loss_fn(sigma, mu, interaction_mat[:, mol_index, pro_index].permute(1, 0)))
 
-        elif mode == 2:  # complex_free
-            mol_feats = self.mol_embedding(mol_feats, mol_edge_index, mol_edge_attr)
-            spatial_feats = self.position_encode(pro_feats, knn_index, pro_batch)
-            pro_feats = self.pro_embedding(pro_feats[:, 3:], pro_edge_index, pro_edge_attr)
-            _, _, _, _, _, y_pred = self.complex_free_predictor(mol_feats, pro_feats, spatial_feats, mol_size, pro_size, data.batch)
-            loss = self.loss(y_pred, y_true)
-            return {'y_complex_pred': torch.zeros_like(y_pred, device='cpu'),
-                    'y_pred': y_pred,
-                    'interaction_loss': torch.tensor([0.]),
-                    'loss': loss,
-                    'pred_loss': loss,
-                    'complex_pred_loss': torch.tensor([0.])}
-
-        else:   # complex_base and complex_free
-            mol_feats = self.mol_embedding(mol_feats, mol_edge_index, mol_edge_attr)
-            spatial_feats = self.position_encode(pro_feats, knn_index, pro_batch)
-            pro_feats = self.pro_embedding(pro_feats[:, 3:], pro_edge_index, pro_edge_attr)
-            interaction_mat, y_complex_pred = self.complex_predictor(mol_feats, pro_feats, pro_batch,
-                                                                     bipartite_edge_index, bipartite_edge_attr)
-            mu, sigma, mol_index, pro_index, y_pred = self.complex_free_predictor(mol_feats, pro_feats,
-                                                                                      spatial_feats, mol_size,
-                                                                                      pro_size, data.batch)
-            loss = self.loss(y_pred, y_true)
-            complex_loss = self.loss(y_complex_pred, y_true)
-            interaction_loss = torch.mean(mdn_loss_fn(sigma, mu, interaction_mat[:, mol_index, pro_index].permute(1, 0)))
-
-            return {'y_complex_pred': y_complex_pred,
-                    'y_pred': y_pred,
-                    # 'interaction_loss': torch.tensor([0.]),
-                    'interaction_loss': interaction_loss,
-                    'loss': loss + complex_loss + interaction_loss,
-                    'pred_loss': loss,
-                    'complex_pred_loss': complex_loss}
-
-
-def modified_huber_loss(pred, true):
-    true = torch.where(true == 1., 1., -1.)
-    condition_1 = pred * true
-    condition_2 = 1 - 2*condition_1 + condition_1*condition_1
-    result = torch.where(condition_2 > 0., condition_2, torch.zeros_like(condition_2))
-    result = torch.where(condition_1 < -1, -4 * condition_1, result)
-    return torch.sum(result)
-
-
-# def modified_huber_loss2(pred, true, decay=0.618):
-#     true = torch.where(true == 1., 1., -1.)
-#     pred = pred - (1 - true)*decay
-#     condition_1 = pred * true
-#     condition_2 = 1 - 2*condition_1 + condition_1*condition_1
-#     result = torch.where(condition_2 > 0., condition_2, torch.zeros_like(condition_2))
-#     result = torch.where(condition_1 < -1, -4 * condition_1, result)
-#     return torch.sum(result)
+        return {'y_pred': y_pred,
+                'loss': loss + complex_loss + interaction_loss}

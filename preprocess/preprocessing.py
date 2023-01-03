@@ -39,7 +39,7 @@ def save_data(pdbid, idx, y):
 
 
 if __name__ == '__main__':
-    root = '../dataset/pdbbind'
+    root = 'dataset/pdbbind'
     df = open(root + '/index/INDEX_general_PL_data.2016', 'r').readlines()[6:]
     pdbbind_list = [i.split()[0] for i in df]
     labels = [i.split()[3] for i in df]
@@ -47,7 +47,6 @@ if __name__ == '__main__':
     pdbbind_list, labels = zip(*s)
     ys = []
     dataset_dict = {}
-    # dataset_root = '../dataset/pdbbind/'
     raw_dir = os.path.join(root, 'total-set')
     pdbids = os.listdir(raw_dir)
     start = 0

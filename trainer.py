@@ -6,7 +6,7 @@ import torch
 import time
 from torch.optim import Adam, SGD, lr_scheduler, RMSprop
 from torch_geometric.loader import DataLoader
-from utils import regression_metrics, get_loss, screening_metrics
+from utils import regression_metrics
 
 torch.backends.cudnn.enabled = True
 save_id = random.randint(0, 1000)
@@ -14,12 +14,10 @@ save_id = random.randint(0, 1000)
 
 class Trainer:
     def __init__(self, args, model, train_dataset, valid_dataset, test_dataset,
-                 batch_size=8, supervise_epoch=0, interaction_epoch=0, accumulation_steps=1, num_workers=4):
+                 batch_size=8, accumulation_steps=1, num_workers=4):
         self.args = args
         self.model = model.cuda()
         self.save_id = save_id
-        self.supervise_epoch = supervise_epoch
-        self.interaction_epoch = interaction_epoch
         self.accumulation_steps = accumulation_steps
         self.train_dataloader = DataLoader(train_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=True) if train_dataset is not None else None
         self.valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, num_workers=num_workers) if valid_dataset is not None else None
@@ -145,14 +143,12 @@ class Trainer:
 
 class RegressionTrainer(Trainer):
     def __init__(self, args, model, train_dataset, valid_dataset, test_dataset,
-                 batch_size=8, supervise_epoch=0, interaction_epoch=0, accumulation_steps=1, num_workers=4):
+                 batch_size=8, accumulation_steps=1, num_workers=4):
         super(RegressionTrainer, self).__init__(args, model, train_dataset, valid_dataset, test_dataset,
                                                 batch_size=batch_size,
-                                                supervise_epoch=supervise_epoch,
-                                                interaction_epoch=interaction_epoch,
                                                 accumulation_steps=accumulation_steps,
                                                 num_workers=num_workers)
-        self.records = {'val_losses': [], 'pearson': [], 'rmse': [], 'complex_pearson': [], 'complex_rmse': [], 'interaction_loss': []}
+        self.records = {'val_losses': [], 'pearson': [], 'rmse': []}
         self.metrics_fn = regression_metrics
         self.pretrain_index = 'complex_pearson'
 
@@ -160,32 +156,28 @@ class RegressionTrainer(Trainer):
         print('Training start...')
         for epoch in tqdm(range(self.args.epochs)):
             print(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())))
-            self.train_output = self.train_iterations(mode=3)
+            self.train_output = self.train_iterations()
             self.val_output = self.valid_iterations()
             self.test_output = self.valid_iterations('test')
             self.log_and_save(epoch)
 
-    def train_iterations(self, mode):
+    def train_iterations(self):
         self.model.train()
-        losses, pred_losses, ys_true, ys_pred = [], [], [], []
+        losses, ys_true, ys_pred = [], [], []
         for i, data in enumerate(self.train_dataloader):
             data = self.data_collation(data)
             mol_batch = self.to_cuda(data)
-            output = self.model(mol_batch, mode=mode, y_true=data.y.unsqueeze(1))
-            loss, interaction_loss, pred_loss, complex_pred_loss = output['loss'], output['interaction_loss'], output[
-                'pred_loss'], output['complex_pred_loss']
+            output = self.model(mol_batch, y_true=data.y.unsqueeze(1))
+            loss = output['loss']
             loss = loss / self.accumulation_steps
             loss.backward()
             if (i + 1) % self.accumulation_steps == 0:
                 self.optimizer.step()
                 self.optimizer.zero_grad()
             losses.append(loss.item())
-            pred_losses.append(pred_loss.item())
         loss = np.array(losses).mean()
-        pred_loss = np.array(pred_losses).mean()
 
-        return {'loss': loss,
-                'pred_loss': pred_loss,}
+        return {'loss': loss}
 
     @torch.no_grad()
     def valid_iterations(self, dataset='valid'):
@@ -194,28 +186,20 @@ class RegressionTrainer(Trainer):
             dataloader = self.valid_dataloader
         elif dataset == 'test':
             dataloader = self.test_dataloader
-        losses, pred_losses, ys_true, ys_pred = [], [], [], []
+        losses, ys_true, ys_pred = [], [], []
         for data in dataloader:
             data = self.data_collation(data)
-            # self.optimizer.zero_grad()
             mol_batch = self.to_cuda(data)
             output = self.model(mol_batch, y_true=data.y.unsqueeze(1))
-            y_pred, y_complex_pred = output['y_pred'], output['y_complex_pred']
-            loss, pred_loss = output['loss'], output['pred_loss']
+            y_pred = output['y_pred']
+            loss = output['loss']
             losses.append(loss.item())
             ys_true.append(data.y.unsqueeze(1).cpu())
             ys_pred.append(y_pred.cpu())
-            # ys_complex_pred.append(y_complex_pred.cpu())
-            # interaction_losses.append(interaction_loss.item())
-            pred_losses.append(pred_loss.item())
-            # complex_pred_losses.append(complex_pred_loss.item())
         loss = torch.tensor(losses).mean()
-        pred_loss = np.array(pred_losses).mean()
-        # complex_pred_loss = np.array(complex_pred_losses).mean()
         result = self.metrics_fn(torch.cat(ys_true).numpy(), torch.cat(ys_pred).numpy())
         return {'loss': loss,
-                'result': result,
-                'pred_loss': pred_loss}
+                'result': result}
 
     @torch.no_grad()
     def test_iterations(self, index='rmse'):
@@ -252,4 +236,3 @@ class RegressionTrainer(Trainer):
         max_best = {'pearson': val_result['pearson']}
         min_best = {'rmse': val_result['rmse']}
         self.save_best_ckpt(max_best, min_best)
-
