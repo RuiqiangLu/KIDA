@@ -1,0 +1,65 @@
+name: KIDA
+channels:
+- conda-forge
+- anaconda
+- pytorch
+- pytorch3d
+- bioconda
+- plotly
+- salilab
+- rusty1s
+dependencies:
+- python=3.8
+- biopython=1.76
+- biopandas=0.2.9
+- conda=4.12.0
+- click=8.1.2
+- flake8=4.0.1
+- interrogate=1.5.0
+- ipympl=0.9.1
+- isort=5.10.1
+- jupyter=1.0.0
+- jupyterlab=3.3.4
+- mamba=0.15.3
+- matplotlib=3.5.1
+- multipledispatch=0.6.0
+- mypy=0.942
+- networkx=2.7.1
+- nodejs=12.4.0
+- numpy=1.22.3
+- pandas=1.4.2
+- pandoc=2.18
+- pip=22.0.4
+- plotly=5.7.0
+- pre-commit=2.18.1
+- pydantic=1.9.0
+- scikit-learn=1.0.2
+- scipy=1.5.3
+- tqdm=4.64.0
+- versioneer=0.22
+- python-wget=3.2
+- xarray=2022.3.0
+- deepdiff=5.8.0
+- click=8.1.2
+- rdkit=2021.03.1=py38hf8acc3d_0
+- openmm=7.6.0=py38h7c39f5a_0
+- openbabel=3.1.1=py38h3d1cf2f_4
+- pymol-open-source=2.4.0=py38h8341299_3
+- plip=2.2.2=pyhd8ed1ab_0
+- dpdata=0.2.8=pyhd8ed1ab_0
+- pdbfixer=1.8.1=pyh6c4a22f_0
+- cudnn=8.4.1.50=hed8a83a_0
+- pytorch:pytorch=1.9.0=py3.8_cuda11.1_cudnn8.0.5_0
+- pytorch-cluster=1.5.9=py38_torch_1.9.0_cu111
+- pytorch-geometric=2.0.3=py38_torch_1.9.0_cu111
+- pytorch-lightning=1.6.1=pyhd8ed1ab_0
+- pytorch-scatter=2.0.9=py38_torch_1.9.0_cu111
+- pytorch-sparse=0.6.12=py38_torch_1.9.0_cu111
+- pytorch-spline-conv=1.2.1=py38_torch_1.9.0_cu111
+- pytorch3d:pytorch3d=0.6.1=py38_cu111_pyt190
+- pip:
+  - pyyaml==5.4.1
+  - bioservices
+  - biovec
+  - propy3
+  - pyaaisc

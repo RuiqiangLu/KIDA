@@ -179,28 +179,6 @@ def sample_and_group(npoint, radius, nsample, xyz, points, returnfps=False):
         return new_xyz, new_points
 
 
-# class GraphConvolution(MessagePassing):
-#     def __init__(self, in_channels, out_channels, aggr="add"):
-#         super(GraphConvolution, self).__init__(aggr=aggr)
-#         self.lin_node = torch.nn.Linear(in_channels, out_channels)
-#         self.lin_message = torch.nn.Linear(out_channels * 2, out_channels)
-#         self.lin_passing = torch.nn.Linear(out_channels * 2, out_channels)
-#         self.batch_norm = BatchNorm(out_channels)
-#
-#     def forward(self, x, edge_index, edge_attr):
-#         x = self.lin_node(x)
-#         return self.propagate(edge_index, x=x)
-#
-#     def message(self, edge_index_i, x_i, x_j):
-#         m = self.lin_message(torch.cat([x_i, x_j], dim=1))
-#         return m
-#
-#     def update(self, aggr_out, edge_index, x):
-#         aggr_out = self.lin_passing(torch.cat([x, aggr_out], dim=1))
-#         aggr_out = self.batch_norm(aggr_out)
-#         return aggr_out
-
-
 class MultiHeadTripletAttention(MessagePassing):
     def __init__(self, node_channels, edge_channels, heads=3, negative_slope=0.2, **kwargs):
         super(MultiHeadTripletAttention, self).__init__(aggr='add', node_dim=0, **kwargs)  # aggr='mean'

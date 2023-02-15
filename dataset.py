@@ -2,7 +2,9 @@ import torch
 import os
 import numpy as np
 import random
-from torch_geometric.data import Data, Dataset
+from torch_geometric.data import Data, Dataset, InMemoryDataset
+from rdkit import Chem
+from preprocess.preprocessing import process_mol
 
 
 class PDBBind_Dataset(Dataset):
@@ -80,3 +82,32 @@ class PDBBind_Dataset(Dataset):
                 train_idx.append(idx_dict[k])
         return train_idx, val_idx, test_idx
 
+
+class mol_data(InMemoryDataset):
+    def __init__(self, root='sample', smiles_list=None, transform=None, pre_transform=None, pre_filter=None):
+        self.smiles_list = smiles_list
+        self.root = root
+        self.index = None
+
+        super(mol_data, self).__init__(root, transform, pre_transform, pre_filter)
+        self.data, self.slices = self.process()
+
+    def process(self):
+        self.index, data_list = [], []
+        for i, smiles in enumerate(self.smiles_list):
+            mol = Chem.MolFromSmiles(smiles)
+            if mol is None:
+                continue
+            data = process_mol(mol)
+            data_list.append(data)
+            self.index.append(i)
+        data, slices = self.collate(data_list)
+        return data, slices
+
+    @property
+    def processed_dir(self):
+        return self.root
+
+    @property
+    def processed_file_names(self):
+        return ['dummy_file']

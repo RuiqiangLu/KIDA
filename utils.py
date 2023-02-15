@@ -111,19 +111,9 @@ class ChamferLoss(nn.Module):
         return torch.mul(loss, 0.005)
 
 
-def mdn_loss_fn(sigma, mu, dist, sample=False):
-    # if sample:
-    #     nonzero = torch.nonzero(dist[:, 0])
-    #     nonzero_sample = nonzero[torch.randint(nonzero.shape[0], (nonzero.shape[0] // 10, 1))].view(-1)
-    #     sample = torch.randint(pi.shape[0], (pi.shape[0] // 100, 1), device=nonzero_sample.device).view(-1)
-    #     sample = torch.cat([nonzero_sample, sample], dim=0)
-    #     pi, sigma, mu, dist = pi[sample], sigma[sample], mu[sample], dist[sample]
-
+def mdn_loss_fn(sigma, mu, dist):
     normal = torch.distributions.Normal(mu, sigma)
     loglik = normal.log_prob(dist)
-    # loss = -torch.mean(loglik, dim=1)
-    # loss = torch.exp(loglik)
-    # loss = torch.abs(torch.logsumexp(torch.log(pi) + loglik, dim=1))
     return -loglik
 
 

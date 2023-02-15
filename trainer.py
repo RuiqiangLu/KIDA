@@ -82,6 +82,7 @@ class Trainer:
         data.qb_edge_attr = data.qb_edge_attr.cuda()
         data.interaction_edge_index = data.interaction_edge_index.cuda()
         data.interaction_edge_attr = data.interaction_edge_attr.cuda()
+        data.interaction_edge_num = data.interaction_edge_num.cuda()
         return data
 
     def data_collation(self, data):

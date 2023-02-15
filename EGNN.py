@@ -1,6 +1,5 @@
 import torch
 from torch import nn, einsum, broadcast_tensors
-import torch.nn.functional as F
 from typing import Optional, List, Union
 import torch_geometric
 from torch_geometric.nn import MessagePassing
