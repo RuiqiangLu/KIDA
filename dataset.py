@@ -4,7 +4,7 @@ import numpy as np
 import random
 from torch_geometric.data import Data, Dataset, InMemoryDataset
 from rdkit import Chem
-from preprocess.preprocessing import process_mol
+from preprocess.preprocess_utils import get_mol_nodes_edges
 
 
 class PDBBind_Dataset(Dataset):
@@ -47,6 +47,8 @@ class PDBBind_Dataset(Dataset):
     def split(self, split='general-core'):
         df = open('dataset/pdbbind/index/INDEX_{}_data.2016'.format(self.dataset), 'r').readlines()[6:]
         train_pdb = [i.split()[0] for i in df]
+        refined_pdb = open('dataset/pdbbind/index/INDEX_refined_set.2016', 'rb').readlines()
+        refined_pdb = [i.split()[0].decode('utf-8') for i in refined_pdb[6:]]
         if split == 'general-core':
             test_pdb = open('dataset/pdbbind/index/core_2016.txt', 'r').read().split()
             train_pdb = list(set(train_pdb) - set(test_pdb))
@@ -55,12 +57,12 @@ class PDBBind_Dataset(Dataset):
             train_pdb = list(set(train_pdb) - set(val_pdb))
         elif split == 'refined-core':
             test_pdb = open('dataset/pdbbind/index/core_2016.txt', 'r').read().split()
-            train_pdb = open('dataset/pdbbind/index/refined_2016.txt', 'r').read().split()
+            train_pdb = refined_pdb
             val_pdb = train_pdb[:int(len(train_pdb) * 0.2)]
             train_pdb = list(set(train_pdb) - set(val_pdb))
         elif split == 'general-refined1000-core':
             test_pdb = open('dataset/pdbbind/index/core_2016.txt', 'r').read().split()
-            val_pdb = open('dataset/pdbbind/index/refined_2016.txt', 'r').read().split()
+            val_pdb = refined_pdb
             random.shuffle(val_pdb)
             val_pdb = val_pdb[:500]
             train_pdb = list(set(train_pdb) - set(val_pdb) - set(test_pdb))
@@ -98,11 +100,19 @@ class mol_data(InMemoryDataset):
             mol = Chem.MolFromSmiles(smiles)
             if mol is None:
                 continue
-            data = process_mol(mol)
+            data = self.process_mol(mol)
             data_list.append(data)
             self.index.append(i)
         data, slices = self.collate(data_list)
         return data, slices
+
+    def process_mol(self, mol):
+        mol, mol_edge_index, mol_edge_attr, mol_node_num, mol_atom_coord = get_mol_nodes_edges(mol, get_coords=False)
+        data = Data(x=mol,
+                    edge_index=mol_edge_index,
+                    edge_attr=mol_edge_attr,
+                    mol_node_num=mol_node_num, )
+        return data
 
     @property
     def processed_dir(self):

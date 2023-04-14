@@ -1,8 +1,8 @@
 from pymol import cmd
 import os
 
-pdb_path = 'dataset/pdbbind/total-set/'
-df = open('dataset/pdbbind/index/INDEX_general_PL_data.2016', 'r').readlines()[6:]
+pdb_path = '../dataset/pdbbind/total-set/'
+df = open('../dataset/pdbbind/index/INDEX_general_PL_data.2016', 'r').readlines()[6:]
 
 pdbbind_list = [i.split()[0] for i in df]
 distance = 6
@@ -28,7 +28,7 @@ for pdb in pdbbind_list:
     cmd.save(pdb + '_complex_' + str(distance) + 'A.pdb', 'complex')
     cmd.delete('all')
     os.chdir('..')
-    print('extract', protein, 'pocket success')
+    # print('extract', protein, 'pocket success')
 
 
 ###### pymol cmd #####

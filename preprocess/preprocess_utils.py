@@ -165,44 +165,12 @@ def get_interaction_graph(lig_coord, pro_coord, pdbid=None, pdbstr=None):
     for i in interaction_types:
         my_interactions[i] = {'lig_atom_coord': [],
                               'pro_atom_coord': []}
-        lig_interaction_coord_list = my_interactions[i]['lig_atom_coord']
-        pro_interaction_coord_list = my_interactions[i]['pro_atom_coord']
+        # lig_interaction_coord_list = my_interactions[i]['lig_atom_coord']
+        # pro_interaction_coord_list = my_interactions[i]['pro_atom_coord']
         my_interaction_list = eval('interaction.{}'.format(i))
         if len(my_interaction_list) == 0:
             continue
-        for num, j in enumerate(my_interaction_list):
-            if i == 'hbonds_ldon':
-                lig_interaction_coord_list.append([list(j.d.coords), list(j.h.coords)])
-                pro_interaction_coord_list.append([list(j.a.coords)])
-            elif i == 'hbonds_pdon':
-                lig_interaction_coord_list.append([list(j.a.coords)])
-                pro_interaction_coord_list.append([list(j.d.coords), list(j.h.coords)])
-            elif i == 'hydrophobic_contacts':
-                lig_interaction_coord_list.append([list(j.ligatom.coords)])
-                pro_interaction_coord_list.append([list(j.bsatom.coords)])
-            elif i == 'pistacking':
-                lig_interaction_coord_list.append([list(l.coords) for l in j.ligandring.atoms])
-                pro_interaction_coord_list.append([list(l.coords) for l in j.proteinring.atoms])
-            elif i == 'pication_laro':
-                lig_interaction_coord_list.append([list(l.coords) for l in j.ring.atoms])
-                pro_interaction_coord_list.append([list(l.coords) for l in j.charge.atoms])
-            elif i == 'pication_paro':
-                lig_interaction_coord_list.append([list(l.coords) for l in j.charge.atoms])
-                pro_interaction_coord_list.append([list(l.coords) for l in j.ring.atoms])
-            elif i == 'saltbridge_lneg':
-                lig_interaction_coord_list.append([list(l.coords) for l in j.negative.atoms])
-                pro_interaction_coord_list.append([list(l.coords) for l in j.positive.atoms])
-            elif i == 'saltbridge_pneg':
-                lig_interaction_coord_list.append([list(l.coords) for l in j.positive.atoms])
-                pro_interaction_coord_list.append([list(l.coords) for l in j.negative.atoms])
-            elif i == 'halogen_bonds':
-                lig_interaction_coord_list.append([list(j.don.c.coords), list(j.don.x.coords)])
-                pro_interaction_coord_list.append([list(j.acc.o.coords), list(j.acc.y.coords)])
-            elif i == 'metal_complexes':
-                lig_interaction_coord_list.append([list(j.metal.coords)])
-                pro_interaction_coord_list.append([list(j.target.atom.coords)])
-            else:
-                print('error type')
+
 
     interaction_features, interaction_edges = [], []
     for k, v in my_interactions.items():
@@ -210,7 +178,7 @@ def get_interaction_graph(lig_coord, pro_coord, pdbid=None, pdbstr=None):
         pro_interaction_coord_list = v['pro_atom_coord']
         if len(lig_interaction_coord_list) == 0 or pro_interaction_coord_list == 0:
             continue
-        interaction_feature = one_of_k_encoding(k, interaction_types)
+
         for i in range(len(lig_interaction_coord_list)):
             lig_interaction_coords = lig_interaction_coord_list[i]
             pro_interaction_coords = pro_interaction_coord_list[i]
@@ -218,34 +186,23 @@ def get_interaction_graph(lig_coord, pro_coord, pdbid=None, pdbstr=None):
             pro_coord_index = np.argmin(pairwise_distances(X=pro_coord, Y=pro_interaction_coords), axis=0)
             for m in lig_coord_index:
                 for n in pro_coord_index:
-                    interaction_features.append(interaction_feature)
                     interaction_edges.append([m, n])
 
     interaction_map = 1 / pairwise_distances(lig_coord, pro_coord)
     interaction_map = np.where(interaction_map < 1/6, 0, interaction_map)
     coo_adj = spmatrix.tocoo(csr_matrix(interaction_map))
     edge_index = np.stack([coo_adj.row, coo_adj.col])
-    interaction_features = torch.BoolTensor(interaction_features)
-    uni_interaction_edges, uni_interaction_features = [], []
+    uni_interaction_edges = []
 
     for i in range(edge_index.shape[1]):
         if [edge_index[0, i], edge_index[1, i]] not in uni_interaction_edges:
             uni_interaction_edges.append([edge_index[0, i], edge_index[1, i]])
-    for i in uni_interaction_edges:
-        index = [a for a, b in enumerate(interaction_edges) if b == i]
-        if len(index) == 0:
-            interaction_feature = torch.zeros(10, dtype=torch.bool)
-        else:
-            interaction_feature = interaction_features[index].any(dim=0)
-        uni_interaction_features.append(interaction_feature)
 
-    uni_interaction_features = torch.stack(uni_interaction_features, dim=0).long()
-    uni_interaction_features = torch.cat([torch.FloatTensor([coo_adj.data]).view(-1, 1), uni_interaction_features], dim=1)
+    uni_interaction_features = torch.FloatTensor([coo_adj.data]).view(-1, 1)
     uni_interaction_edges = list(map(list, zip(*uni_interaction_edges)))    # List transpose
     uni_interaction_edges = torch.LongTensor(uni_interaction_edges)
 
-    return Data(edge_attr=uni_interaction_features,
-                edge_index=uni_interaction_edges,)
+    return Data(edge_index=uni_interaction_edges, edge_attr=uni_interaction_features)
 
 
 def query_ball_graph(xyz, distance=4., knn=False):
@@ -294,7 +251,7 @@ def mol2data(mol, protein, pro_atom_coord, pdbid=None, complex_str=None, label=0
                 mol_node_num=mol_node_num,
                 interaction_edge_index=interaction.edge_index,
                 interaction_edge_attr=interaction.edge_attr,
-                interaction_edge_num=interaction.edge_attr.shape[0],
+                interaction_edge_num=interaction.edge_index.shape[1],
                 qb_edge_index=protein.qb_edge_index,
                 qb_edge_attr=protein.qb_edge_attr,
                 qb_edge_num=protein.qb_edge_num,

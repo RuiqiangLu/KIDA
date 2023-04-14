@@ -3,15 +3,15 @@ from openbabel import openbabel
 from rdkit.Chem import SDWriter, SDMolSupplier
 import dpdata
 
-
 obConversion = openbabel.OBConversion()
 obConversion.SetInAndOutFormats('sdf', 'sdf')
 
 datadir = '../dataset/pdbbind/total-set/'
 pdbids = os.listdir(datadir)
 error_file = []
-
-for pdbid in pdbids:
+n = len(pdbids)
+for i, pdbid in enumerate(pdbids):
+    print('{}/{} {}'.format(i, n, pdbid))
     mol = openbabel.OBMol()
     infile = os.path.join(datadir, pdbid, "{}_ligand.sdf".format(pdbid))
     obConversion.ReadFile(mol, infile)

@@ -111,7 +111,7 @@ class ComplexPredictor(nn.Module):
 
 
 class ComplexFreePredictor(nn.Module):
-    def __init__(self, hid_dim=32, heads=8, output=1):
+    def __init__(self, hid_dim=32, heads=8, output=1, dropout=0.1):
         super(ComplexFreePredictor, self).__init__()
         self.sigma = nn.Linear(hid_dim * 2, heads)
         self.mu = nn.Linear(hid_dim * 2, heads)
